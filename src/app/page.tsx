@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { ElementRef } from "react";
-import { RefreshCw, Zap, BookOpen, LoaderCircle } from "lucide-react";
+import { RefreshCw, Zap, BookOpen, LoaderCircle, Eye, EyeOff } from "lucide-react";
 import { getNewText, fetchTextsByWordLength, fetchTextById, fetchInitialText } from "./actions";
 import type { Difficulty } from "@/ai/flows/types";
 import { TypingTest, type TypingTestHandle } from "@/components/typing-test";
@@ -48,6 +48,7 @@ export default function Home() {
   const [apiKey, setApiKey] = useState<string>("");
   const [pendingDifficulty, setPendingDifficulty] = useState<Difficulty | null>(null);
   const [apiKeyError, setApiKeyError] = useState<string>("");
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
 
   const fetchAndSetInitialData = useCallback(async (length: number) => {
     setIsLoading(true);
@@ -122,9 +123,22 @@ export default function Home() {
         setShowDifficultyDialog(true);
         setPendingDifficulty(difficulty);
         setApiKeyError('Invalid API key. Please re-enter a valid Gemini API key.');
+        // Clear the invalid key from session and state so the dialog shows the key field again
+        try { sessionStorage.removeItem('gemini_api_key'); } catch {}
+        setApiKey('');
         return;
       }
       console.error("Failed to generate new text:", error);
+      // As a safety net: if fallback text was returned but the error indicates invalid key,
+      // ensure dialog is re-opened.
+      if ((error as any)?.message?.toString?.().includes('INVALID_API_KEY')) {
+        setShowDifficultyDialog(true);
+        setPendingDifficulty(difficulty);
+        setApiKeyError('Invalid API key. Please re-enter a valid Gemini API key.');
+        try { sessionStorage.removeItem('gemini_api_key'); } catch {}
+        setApiKey('');
+        return;
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -165,6 +179,9 @@ export default function Home() {
       await handleGenerateNewText(pendingDifficulty);
     }
   };
+
+  // Keeping this placeholder if we want to restore ETA in the future
+  const getEtaText = (_len: number) => "a few seconds";
 
   
   return (
@@ -243,7 +260,7 @@ export default function Home() {
                         <LoaderCircle className="w-12 h-12 animate-spin text-primary" />
                         <div className="text-center">
                             <p className="text-lg font-semibold text-primary text-glow">Generating Text Using AI</p>
-                            <p className="text-sm text-muted-foreground">This may take a few seconds...</p>
+                            <p className="text-sm text-muted-foreground">This may take about {getEtaText(wordLength)} based on the chosen length.</p>
                         </div>
                     </div>
                 )}
@@ -262,10 +279,21 @@ export default function Home() {
       <Dialog open={showDifficultyDialog} onOpenChange={(open) => { setShowDifficultyDialog(open); if (!open) setPendingDifficulty(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Choose Difficulty</DialogTitle>
-            <DialogDescription>
-              Select a difficulty level for the AI-generated text.
-            </DialogDescription>
+            {!pendingDifficulty ? (
+              <>
+                <DialogTitle>Choose Difficulty</DialogTitle>
+                <DialogDescription>
+                  Select a difficulty level for the AI-generated text.
+                </DialogDescription>
+              </>
+            ) : (
+              <>
+                <DialogTitle>Enter API Key</DialogTitle>
+                <DialogDescription>
+                  Paste your Gemini API key. It will be stored only for this browser tab.
+                </DialogDescription>
+              </>
+            )}
           </DialogHeader>
           {!pendingDifficulty ? (
             <div className="grid grid-cols-1 gap-4 py-4">
@@ -282,13 +310,23 @@ export default function Home() {
           ) : (
             <div className="grid gap-4 py-4">
               <p className="text-sm text-muted-foreground">Enter Gemini API key to generate a {pendingDifficulty} text.</p>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => { setApiKey(e.target.value); setApiKeyError(""); }}
-                placeholder="Enter your Gemini API key"
-                className="w-full rounded-md border px-3 py-2 bg-background"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type={showApiKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(e) => { setApiKey(e.target.value); setApiKeyError(""); }}
+                  placeholder="Enter your Gemini API key"
+                  className="w-full rounded-md border px-3 py-2 bg-background"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(v => !v)}
+                  aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                  className="inline-flex items-center justify-center rounded-md border px-2 py-2 hover:bg-accent"
+                >
+                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
               {apiKeyError && <span className="text-sm text-destructive">{apiKeyError}</span>}
               <p className="text-xs text-muted-foreground">
                 Don’t have a key?{' '}

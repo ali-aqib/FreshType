@@ -22,7 +22,12 @@ function isInvalidApiKeyError(err: unknown): boolean {
 export async function getNewText(options: GenerateTypingTextInput & { apiKey?: string }): Promise<Pick<TextRecord, 'id' | 'content' | 'title'>> {
   try {
     const { apiKey, ...genOptions } = options as GenerateTypingTextInput & { apiKey?: string };
-    const result = await generateTypingTextWithKey(genOptions, apiKey);
+    // Basic validation to avoid malformed keys (whitespace, non-ASCII, en-dash, etc.)
+    const cleanedKey = (apiKey ?? "").trim();
+    if (cleanedKey && (/\s/.test(cleanedKey) || /[^\x00-\x7F]/.test(cleanedKey))) {
+      throw new Error('INVALID_API_KEY');
+    }
+    const result = await generateTypingTextWithKey(genOptions, cleanedKey || undefined);
     if (!result.textContent || result.textContent.trim().length < 20) {
       console.warn("AI generated invalid text, using fallback.");
       const title = 'Fallback Text';
@@ -39,7 +44,9 @@ export async function getNewText(options: GenerateTypingTextInput & { apiKey?: s
     
     return { id: newId, content: result.textContent, title };
   } catch (error) {
-    if (isInvalidApiKeyError(error)) {
+    const message = (error as any)?.message || '';
+    // Genkit or upstream may throw ByteString errors for non-ASCII characters in key
+    if (message === 'INVALID_API_KEY' || isInvalidApiKeyError(error) || /ByteString/i.test(message)) {
       // Signal to client so UI can prompt re-entry without closing the dialog
       throw new Error('INVALID_API_KEY');
     }
