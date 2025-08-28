@@ -296,7 +296,14 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
         </div>
         <div className="p-1.5">
           <p className="text-sm font-extrabold text-black dark:text-white">Time</p>
-          <p className="text-4xl font-extrabold text-black dark:text-white">{Math.floor(elapsedTime)}s</p>
+          <p className="text-4xl font-extrabold text-black dark:text-white">{
+            (() => {
+              const totalSeconds = Math.floor(elapsedTime);
+              const minutes = Math.floor(totalSeconds / 60);
+              const seconds = totalSeconds % 60;
+              return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            })()
+          }</p>
         </div>
         <div className="p-1.5">
           <p className="text-sm font-extrabold text-black dark:text-white">Errors</p>
