@@ -44,7 +44,8 @@ function normalizeCharForCompare(char: string): string {
 
 const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharState[], currentIndex: number, showMistakes: boolean, isDark: boolean }>(({ text, charStates, currentIndex, showMistakes, isDark }, ref) => {
   const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
-   const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [caret, setCaret] = useState<{ left: number; top: number; height: number } | null>(null);
 
 
   useEffect(() => {
@@ -55,47 +56,70 @@ const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharS
     const container = containerRef.current;
     if (!container) return;
 
-    const targetChar = charRefs.current[currentIndex];
+    let targetChar = charRefs.current[currentIndex];
+    let useRightEdge = false;
+    if (!targetChar) {
+      // If we're at the end of the text, anchor caret to the right edge of the last character
+      targetChar = charRefs.current[Math.max(0, currentIndex - 1)] ?? null;
+      useRightEdge = true;
+    }
     if (!targetChar) return;
 
     const containerRect = container.getBoundingClientRect();
     const charRect = targetChar.getBoundingClientRect();
-    
+
+    // Position an overlay caret without affecting layout
+    const left = (useRightEdge ? charRect.right : charRect.left) - containerRect.left + container.scrollLeft;
+    const top = charRect.top - containerRect.top + container.scrollTop;
+    const height = charRect.height;
+    setCaret({ left, top, height });
+
     // Auto-scroll logic
     const scrollBuffer = charRect.height * 2; // Keep 2 lines buffer
     if (charRect.bottom > containerRect.bottom - scrollBuffer) {
-        container.scrollTop += charRect.bottom - (containerRect.bottom - scrollBuffer);
+      container.scrollTop += charRect.bottom - (containerRect.bottom - scrollBuffer);
     } else if (charRect.top < containerRect.top) {
-        container.scrollTop += charRect.top - containerRect.top;
+      container.scrollTop += charRect.top - containerRect.top;
     }
-
-  }, [currentIndex]);
+  }, [currentIndex, text]);
 
   const percent = text.length > 0 ? Math.min(100, Math.round((currentIndex / text.length) * 100)) : 0;
 
   return (
-    <Card ref={containerRef} className="h-44 overflow-y-auto overflow-x-hidden p-0 border-primary/60 bg-card/80">
+    <Card ref={containerRef} className="relative h-44 overflow-y-auto overflow-x-hidden p-0 border-primary/60 bg-card/80">
+       {/* Absolute caret overlay that doesn't change layout */}
+       {caret && (
+         <span
+           className="pointer-events-none absolute bg-primary animate-pulse"
+           style={{ left: caret.left, top: caret.top, width: 2, height: caret.height }}
+         />
+       )}
        <div className="p-4 text-base leading-relaxed tracking-normal sm:tracking-wide select-none">
-           {text.split('').map((char, index) => (
-             <span key={index} ref={(el) => { charRefs.current[index] = el; }}>
-               {index === currentIndex && (
-                 <span className="inline-block w-0.5 h-[1em] align-middle bg-primary animate-pulse mr-[1px]" />
-               )}
-               <span
-                 className={cn(
-                   charStates[index] === "untouched" && "text-muted-foreground",
-                   charStates[index] === "correct" && (showMistakes ? (isDark ? "text-emerald-400 font-bold" : "text-correct-light font-bold") : "text-foreground font-bold"),
-                   (charStates[index] === "incorrect" && (showMistakes ? "text-red-500 bg-red-500/20 rounded font-bold" : "text-foreground font-bold")),
-                 )}
-               >
-                 {char}
-               </span>
-             </span>
-           ))}
-           {currentIndex === text.length && (
-             <span className="inline-block w-0.5 h-[1em] align-middle bg-primary animate-pulse ml-[1px]" />
-           )}
-        </div>
+         {text.split('\n').map((line, lineIdx, linesArr) => {
+           // Calculate the start index of this line in the full text
+           const startIdx = linesArr.slice(0, lineIdx).reduce((acc, l) => acc + l.length + 1, 0); // +1 for '\n'
+           return (
+             <div key={lineIdx} style={{ display: 'block', width: '100%' }}>
+               {line.split('').map((char, charIdx) => {
+                 const index = startIdx + charIdx;
+                 return (
+                   <span key={index} ref={el => { charRefs.current[index] = el; }}>
+                     <span
+                       className={cn(
+                         charStates[index] === "untouched" && "text-muted-foreground",
+                         charStates[index] === "correct" && (showMistakes ? (isDark ? "text-emerald-400 font-bold" : "text-correct-light font-bold") : "text-foreground font-bold"),
+                         (charStates[index] === "incorrect" && (showMistakes ? "text-red-500 bg-red-500/20 rounded font-bold" : "text-foreground font-bold")),
+                       )}
+                     >
+                       {char}
+                     </span>
+                   </span>
+                 );
+               })}
+             </div>
+           );
+         })}
+       </div>
     </Card>
   );
 });
