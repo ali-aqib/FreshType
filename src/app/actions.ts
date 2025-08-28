@@ -34,13 +34,12 @@ export async function getNewText(options: GenerateTypingTextInput & { apiKey?: s
       return { id: -1, content: fallbackText, title };
     }
     
-    const textCount = getTextCountByWordLength(options.wordLength);
+  const textCount = await getTextCountByWordLength(options.wordLength);
     const title = result.textContent.split(' ').slice(0, 3).join(' ') + '...';
     let newId = -1;
-    if(textCount < 100) {
-        const addResult = addText(result.textContent, options.wordLength, title);
-        newId = Number(addResult.lastInsertRowid);
-    }
+  if(textCount < 100) {
+    newId = await addText(result.textContent, options.wordLength, title);
+  }
     
     return { id: newId, content: result.textContent, title };
   } catch (error) {
@@ -57,11 +56,11 @@ export async function getNewText(options: GenerateTypingTextInput & { apiKey?: s
 }
 
 export async function fetchTextsByWordLength(wordLength: number): Promise<Pick<TextRecord, 'id' | 'title'>[]> {
-    return getTextsByWordLength(wordLength);
+  return await getTextsByWordLength(wordLength);
 }
 
 export async function fetchTextById(id: number): Promise<Pick<TextRecord, 'id' | 'content' | 'title'>> {
-    const textRecord = getText(id);
+  const textRecord = await getText(id);
     if (textRecord) {
       return { id: textRecord.id, content: textRecord.content, title: textRecord.title };
     }
@@ -70,7 +69,7 @@ export async function fetchTextById(id: number): Promise<Pick<TextRecord, 'id' |
 }
 
 export async function fetchInitialText(wordLength: number): Promise<Pick<TextRecord, 'id' | 'content' | 'title'>> {
-    const textRecord = getRandomTextByWordLength(wordLength);
+  const textRecord = await getRandomTextByWordLength(wordLength);
     if (textRecord) {
         return { id: textRecord.id, content: textRecord.content, title: textRecord.title };
     }
