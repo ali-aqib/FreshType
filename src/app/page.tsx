@@ -200,13 +200,13 @@ export default function Home() {
 
   
   return (
-    <main className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 font-code bg-background text-foreground">
-      <div className="w-full max-w-4xl flex flex-col gap-8">
-        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h1 className="text-4xl font-bold text-glow text-left leading-9">FreshType</h1>
+    <main className="flex flex-col items-center justify-center min-h-screen p-3 sm:p-6 font-code bg-background text-foreground">
+      <div className="w-full max-w-4xl flex flex-col gap-6">
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-primary text-left leading-8 sm:leading-9">FreshType</h1>
           <div className="flex flex-wrap items-center gap-1">
             <Select onValueChange={handleWordLengthChange} defaultValue={String(wordLength)} disabled={isGenerating}>
-              <SelectTrigger className="w-[110px] sm:w-[120px] h-9 px-2 text-sm shrink-0">
+              <SelectTrigger className="w-[110px] sm:w-[120px] h-8 px-2 text-sm shrink-0 font-semibold">
                 <SelectValue placeholder="Word Length" />
               </SelectTrigger>
               <SelectContent>
@@ -222,7 +222,7 @@ export default function Home() {
               value={selectedTextId ? String(selectedTextId) : ""}
               onValueChange={(value) => handleSelectText(value)}
               disabled={isFetchingChoices || isGenerating}>
-              <SelectTrigger className="w-[150px] sm:w-[170px] h-9 px-2 text-sm shrink-0">
+              <SelectTrigger className="w-[150px] sm:w-[170px] h-8 px-2 text-sm shrink-0 font-semibold">
                 <SelectValue placeholder={isFetchingChoices ? "Loading..." : "Choose Text"}>
                   {formatTitle(textTitle || (isFetchingChoices ? "Loading..." : "Choose Text"))}
                 </SelectValue>
@@ -244,15 +244,15 @@ export default function Home() {
               setPendingDifficulty(null);
               setApiKeyError("");
               setShowDifficultyDialog(true);
-            }} variant="outline" size="sm" disabled={isGenerating} className="h-9 shrink-0 whitespace-nowrap px-2">
+            }} variant="outline" size="sm" disabled={isGenerating} className="h-8 shrink-0 whitespace-nowrap px-2 font-semibold">
               <Zap className="mr-0.5 h-4 w-4" />
               {isGenerating ? "Generating..." : "Generate New Text"}
             </Button>
-            <Button onClick={handleRestart} variant="outline" size="sm" disabled={isGenerating} className="h-9 shrink-0 whitespace-nowrap px-2">
+            <Button onClick={handleRestart} variant="outline" size="sm" disabled={isGenerating} className="h-8 shrink-0 whitespace-nowrap px-2 font-semibold">
               <RefreshCw className="mr-0.5 h-4 w-4" />
               Restart
             </Button>
-            <Button onClick={toggleTheme} variant="outline" size="sm" className="h-9 w-[90px] shrink-0 whitespace-nowrap px-2" aria-label="Toggle theme">
+            <Button onClick={toggleTheme} variant="outline" size="sm" className="h-8 w-[90px] shrink-0 whitespace-nowrap px-2 font-semibold" aria-label="Toggle theme">
               {isDark ? <Sun className="mr-0.5 h-4 w-4" /> : <Moon className="mr-0.5 h-4 w-4" />}
               {isDark ? 'Light' : 'Dark'}
             </Button>
@@ -286,7 +286,7 @@ export default function Home() {
                         </div>
                     </div>
                 )}
-                <TypingTest ref={typingTestRef} text={text} disabled={isGenerating} key={String(selectedTextId) + text} />
+                <TypingTest ref={typingTestRef} text={text} disabled={isGenerating} isDark={isDark} key={String(selectedTextId) + text} />
             </div>
         )}
         

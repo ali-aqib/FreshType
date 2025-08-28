@@ -16,6 +16,7 @@ export interface TypingTestHandle {
 interface TypingTestProps {
   text: string;
   disabled?: boolean;
+  isDark?: boolean;
 }
 
 // Normalize characters so visually equivalent punctuation matches during comparison.
@@ -41,7 +42,7 @@ function normalizeCharForCompare(char: string): string {
   return (replaced ?? char);
 }
 
-const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharState[], currentIndex: number, showMistakes: boolean }>(({ text, charStates, currentIndex, showMistakes }, ref) => {
+const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharState[], currentIndex: number, showMistakes: boolean, isDark: boolean }>(({ text, charStates, currentIndex, showMistakes, isDark }, ref) => {
   const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
    const containerRef = useRef<HTMLDivElement>(null);
 
@@ -73,11 +74,8 @@ const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharS
   const percent = text.length > 0 ? Math.min(100, Math.round((currentIndex / text.length) * 100)) : 0;
 
   return (
-    <Card ref={containerRef} className="h-56 overflow-y-auto overflow-x-hidden p-0">
-       <div className="w-full h-1 bg-muted">
-         <div className="h-full bg-primary transition-all duration-300" style={{ width: `${percent}%` }} />
-       </div>
-       <div className="p-6 text-lg leading-loose tracking-normal sm:tracking-wide select-none">
+    <Card ref={containerRef} className="h-44 overflow-y-auto overflow-x-hidden p-0 border-primary/60 bg-card/80">
+       <div className="p-4 text-base leading-relaxed tracking-normal sm:tracking-wide select-none">
            {text.split('').map((char, index) => (
              <span key={index} ref={(el) => { charRefs.current[index] = el; }}>
                {index === currentIndex && (
@@ -86,7 +84,7 @@ const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharS
                <span
                  className={cn(
                    charStates[index] === "untouched" && "text-muted-foreground",
-                   charStates[index] === "correct" && (showMistakes ? "text-emerald-400" : "text-foreground"),
+                   charStates[index] === "correct" && (showMistakes ? (isDark ? "text-emerald-400" : "text-correct-light") : "text-foreground"),
                    (charStates[index] === "incorrect" && (showMistakes ? "text-red-500 bg-red-500/20 rounded" : "text-foreground")),
                  )}
                >
@@ -105,7 +103,7 @@ const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharS
 TextDisplay.displayName = 'TextDisplay';
 
 
-export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text, disabled = false }, ref) => {
+export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text, disabled = false, isDark = true }, ref) => {
   const [charStates, setCharStates] = useState<CharState[]>(Array(text.length).fill("untouched"));
   const [userInput, setUserInput] = useState<string>("");
   const [isTyping, setIsTyping] = useState<boolean>(false);
@@ -271,35 +269,50 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
 
 
   return (
-    <div className={cn("flex flex-col gap-8", { "opacity-50": disabled })}>
-      <Card className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3 text-center border-primary/50">
-        <div className="p-2">
-          <p className="text-sm text-muted-foreground">WPM</p>
-          <p className="text-3xl font-bold text-glow text-primary">{wpm}</p>
+    <div className={cn("flex flex-col gap-6", { "opacity-50": disabled })}>
+      <Card className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-2 text-center border-primary/60 bg-card/80">
+        <div className="p-1.5">
+          <p className="text-sm font-extrabold text-black dark:text-white">WPM</p>
+          <p className="text-4xl font-extrabold text-black dark:text-white">{wpm}</p>
         </div>
-        <div className="p-2">
-          <p className="text-sm text-muted-foreground">CPM</p>
-          <p className="text-3xl font-bold text-glow text-primary">{Math.round((charStates.slice(0, currentIndex).filter(s => s === 'correct').length) / Math.max(1, elapsedTime / 60))}</p>
+        <div className="p-1.5">
+          <p className="text-sm font-extrabold text-black dark:text-white">CPM</p>
+          <p className="text-4xl font-extrabold text-black dark:text-white">{Math.round((charStates.slice(0, currentIndex).filter(s => s === 'correct').length) / Math.max(1, elapsedTime / 60))}</p>
         </div>
-        <div className="p-2">
-          <p className="text-sm text-muted-foreground">Accuracy</p>
-          <p className="text-3xl font-bold text-glow text-primary">{accuracy}%</p>
+        <div className="p-1.5">
+          <p className="text-sm font-extrabold text-black dark:text-white">Accuracy</p>
+          <p className="text-4xl font-extrabold text-black dark:text-white">{accuracy}%</p>
         </div>
-        <div className="p-2">
-          <p className="text-sm text-muted-foreground">Time</p>
-          <p className="text-3xl font-bold text-glow text-primary">{Math.floor(elapsedTime)}s</p>
+        <div className="p-1.5">
+          <p className="text-sm font-extrabold text-black dark:text-white">Time</p>
+          <p className="text-4xl font-extrabold text-black dark:text-white">{Math.floor(elapsedTime)}s</p>
         </div>
-        <div className="p-2">
-          <p className="text-sm text-muted-foreground">Errors</p>
-          <p className="text-3xl font-bold text-glow text-primary">{errors}</p>
+        <div className="p-1.5">
+          <p className="text-sm font-extrabold text-black dark:text-white">Errors</p>
+          <p className="text-4xl font-extrabold text-black dark:text-white">{errors}</p>
         </div>
         <div className="col-span-2 sm:col-span-5">
           <p className="text-xs text-muted-foreground text-center">Press Esc to pause/resume • Press F8 to toggle mistake highlighting ({showMistakes ? 'On' : 'Off'}).</p>
         </div>
       </Card>
+      {/* Progress bar between stats and text area */}
+      {text.length > 0 && (
+        <div className="w-full">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-muted-foreground">Progress</span>
+            <span className="text-xs font-medium text-foreground">{Math.min(100, Math.round((currentIndex / text.length) * 100))}%</span>
+          </div>
+          <div className="w-full h-2 bg-muted rounded">
+            <div
+              className="h-full bg-primary rounded transition-all duration-300"
+              style={{ width: `${text.length > 0 ? Math.min(100, Math.round((currentIndex / text.length) * 100)) : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
       
       <div className="relative">
-        <TextDisplay ref={textDisplayContainerRef} text={text} charStates={charStates} currentIndex={currentIndex} showMistakes={showMistakes} />
+        <TextDisplay ref={textDisplayContainerRef} text={text} charStates={charStates} currentIndex={currentIndex} showMistakes={showMistakes} isDark={isDark} />
         {isPaused && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
             <Card className="p-4 text-center shadow-lg">
@@ -314,10 +327,10 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
           ref={inputRef}
           value={userInput}
           onChange={handleInputChange}
-          className="text-lg leading-relaxed tracking-wider h-48"
+          className="text-base leading-relaxed tracking-wider h-36"
           placeholder="Start typing here..."
           disabled={disabled || isPaused || currentIndex >= text.length}
-          rows={5}
+          rows={4}
       />
     </div>
   );
