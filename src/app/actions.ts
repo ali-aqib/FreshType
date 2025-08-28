@@ -22,6 +22,12 @@ function isInvalidApiKeyError(err: unknown): boolean {
 export async function getNewText(options: GenerateTypingTextInput & { apiKey?: string }): Promise<Pick<TextRecord, 'id' | 'content' | 'title'>> {
   try {
     const { apiKey, ...genOptions } = options as GenerateTypingTextInput & { apiKey?: string };
+    const allowed = [100, 200, 400, 800];
+    if (!allowed.includes(genOptions.wordLength)) {
+      // Coerce to nearest allowed length
+      const nearest = allowed.reduce((a, b) => Math.abs(b - genOptions.wordLength) < Math.abs(a - genOptions.wordLength) ? b : a, allowed[0]);
+      genOptions.wordLength = nearest as any;
+    }
     // Basic validation to avoid malformed keys (whitespace, non-ASCII, en-dash, etc.)
     const cleanedKey = (apiKey ?? "").trim();
     if (cleanedKey && (/\s/.test(cleanedKey) || /[^\x00-\x7F]/.test(cleanedKey))) {
@@ -69,10 +75,12 @@ export async function fetchTextById(id: number): Promise<Pick<TextRecord, 'id' |
 }
 
 export async function fetchInitialText(wordLength: number): Promise<Pick<TextRecord, 'id' | 'content' | 'title'>> {
-  const textRecord = await getRandomTextByWordLength(wordLength);
+  const allowed = [100, 200, 400, 800];
+  const wl = allowed.includes(wordLength) ? wordLength : allowed[0];
+  const textRecord = await getRandomTextByWordLength(wl);
     if (textRecord) {
         return { id: textRecord.id, content: textRecord.content, title: textRecord.title };
     }
-    const newText = await getNewText({ wordLength, difficulty: 'Easy' });
+  const newText = await getNewText({ wordLength: wl as any, difficulty: 'Easy' });
     return { id: newText.id, content: newText.content, title: newText.title };
 }

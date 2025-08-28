@@ -26,7 +26,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 
-const wordLengths = [100, 200, 400, 800, 1500];
+const wordLengths = [100, 200, 400, 800];
 const difficultyLevels: Difficulty[] = ['Easy', 'Moderate', 'Hard'];
 
 type TextChoice = {
@@ -70,7 +70,7 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Failed to fetch initial data:", error);
-      setText("Error loading text. Please try again. The quick brown fox jumps over the lazy dog.");
+      setText("Error loading text. Please try again.");
       setSelectedTextId("");
       setTextTitle("Error");
       setTextChoices([]);
@@ -282,7 +282,7 @@ export default function Home() {
                         <LoaderCircle className="w-12 h-12 animate-spin text-primary" />
                         <div className="text-center">
                             <p className="text-lg font-semibold text-primary text-glow">Generating Text Using AI</p>
-                            <p className="text-sm text-muted-foreground">This may take about {getEtaText(wordLength)} based on the chosen length.</p>
+                            <p className="text-sm text-muted-foreground">This may take some time, depending on the length of the text..</p>
                         </div>
                     </div>
                 )}

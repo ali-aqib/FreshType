@@ -24,7 +24,7 @@ function ensureSqlite() {
       CREATE TABLE texts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         content TEXT NOT NULL,
-        wordLength INTEGER NOT NULL,
+  wordLength INTEGER NOT NULL CHECK (wordLength IN (100, 200, 400, 800)),
         title TEXT NOT NULL,
         source TEXT DEFAULT 'ai'
       );
@@ -53,6 +53,21 @@ async function ensurePg() {
       title TEXT NOT NULL,
       source TEXT DEFAULT 'ai'
     );
+  `);
+  // Ensure a CHECK constraint exists to restrict allowed word lengths
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint c
+        JOIN pg_class t ON c.conrelid = t.oid
+        WHERE t.relname = 'texts' AND c.conname = 'wordlength_allowed_chk'
+      ) THEN
+        ALTER TABLE texts
+        ADD CONSTRAINT wordlength_allowed_chk CHECK (wordLength IN (100, 200, 400, 800));
+      END IF;
+    END
+    $$;
   `);
   return pool;
 }

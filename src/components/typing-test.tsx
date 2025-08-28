@@ -229,16 +229,16 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
   };
   
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isTyping && !isPaused && startTime && currentIndex < text.length) {
-      interval = setInterval(() => {
-        const now = Date.now();
-        const pausedMs = totalPausedMsRef.current;
-        setElapsedTime((now - startTime - pausedMs) / 1000);
-      }, 100);
-    }
+    if (!isTyping || isPaused || !startTime) return;
+    const tick = () => {
+      const now = Date.now();
+      const pausedMs = totalPausedMsRef.current;
+      setElapsedTime((now - startTime - pausedMs) / 1000);
+    };
+    tick();
+    const interval = setInterval(tick, 100);
     return () => clearInterval(interval);
-  }, [isTyping, isPaused, startTime, currentIndex, text.length]);
+  }, [isTyping, isPaused, startTime]);
 
   // Toggle pause/resume with Esc; do not use other keys
   useEffect(() => {
@@ -287,20 +287,21 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
     if (elapsedTime === 0) return { wpm: 0, accuracy: 100, errors: 0 };
 
     const minutesElapsed = elapsedTime / 60;
-    const totalKeystrokes = userInput.length;
-    const errorKeystrokes = charStates.slice(0, currentIndex).filter(s => s === 'incorrect').length;
+    const typedSpan = charStates.slice(0, currentIndex);
+    const correctChars = typedSpan.filter(s => s === 'correct').length;
+    const errorKeystrokes = typedSpan.filter(s => s === 'incorrect').length;
+    const totalKeystrokes = correctChars + errorKeystrokes;
 
-    // Gross WPM = (Total Keystrokes ÷ 5) ÷ Time in minutes
-    const grossWpm = minutesElapsed > 0 ? ((totalKeystrokes / 5) / minutesElapsed) : 0;
+    // Friendlier metrics (no cascade penalty):
+    // WPM = (Correct Characters ÷ 5) ÷ Time in minutes
+    const wpm = minutesElapsed > 0 ? ((correctChars / 5) / minutesElapsed) : 0;
+    // Accuracy = (Correct Characters ÷ Total Keystrokes) × 100
+    const accuracy = totalKeystrokes > 0 ? (correctChars / totalKeystrokes) * 100 : 100;
+    // Error percentage = (Errors ÷ Total Keystrokes) × 100
+    const errorPct = totalKeystrokes > 0 ? (errorKeystrokes / totalKeystrokes) * 100 : 0;
 
-    // Net WPM = Gross WPM – (Errors ÷ Time in minutes ÷ 5)
-    const netWpm = minutesElapsed > 0 ? (grossWpm - ((errorKeystrokes / minutesElapsed) / 5)) : 0;
-
-    // Accuracy = (Net WPM ÷ Gross WPM) × 100
-    const accuracy = grossWpm > 0 ? (netWpm / grossWpm) * 100 : 100;
-
-    return { wpm: Math.max(0, Math.round(netWpm)), accuracy: Math.max(0, Math.round(accuracy)), errors: errorKeystrokes };
-  }, [elapsedTime, userInput, charStates, currentIndex]);
+    return { wpm: Math.max(0, Math.round(wpm)), accuracy: Math.max(0, Math.round(accuracy)), errors: Math.max(0, Math.round(errorPct)) };
+  }, [elapsedTime, charStates, currentIndex]);
 
 
   return (
@@ -330,8 +331,8 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
           }</p>
         </div>
         <div className="p-1.5">
-          <p className="text-sm font-extrabold text-black dark:text-white">Errors</p>
-          <p className="text-4xl font-extrabold text-black dark:text-white">{errors}</p>
+          <p className="text-sm font-extrabold text-black dark:text-white">Errors %</p>
+          <p className="text-4xl font-extrabold text-black dark:text-white">{errors}%</p>
         </div>
         <div className="col-span-2 sm:col-span-5">
           <p className="text-xs text-muted-foreground text-center">Press Esc to pause/resume • Press F8 to toggle mistake highlighting ({showMistakes ? 'On' : 'Off'}).</p>
