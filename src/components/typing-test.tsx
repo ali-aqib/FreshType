@@ -261,16 +261,22 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
 
   const { wpm, accuracy, errors } = useMemo(() => {
     if (elapsedTime === 0) return { wpm: 0, accuracy: 100, errors: 0 };
-    
-    const correctCharsCount = charStates.slice(0, currentIndex).filter(s => s === 'correct').length;
-    const errorsCount = charStates.slice(0, currentIndex).filter(s => s === 'incorrect').length;
-    const wordsTyped = (correctCharsCount / 5);
-    const minutesElapsed = elapsedTime / 60;
-    const wpm = minutesElapsed > 0 ? (wordsTyped / minutesElapsed) : 0;
-    const accuracy = currentIndex > 0 ? (correctCharsCount / currentIndex) * 100 : 100;
 
-    return { wpm: Math.round(wpm), accuracy: Math.round(accuracy), errors: errorsCount };
-  }, [elapsedTime, charStates, currentIndex]);
+    const minutesElapsed = elapsedTime / 60;
+    const totalKeystrokes = userInput.length;
+    const errorKeystrokes = charStates.slice(0, currentIndex).filter(s => s === 'incorrect').length;
+
+    // Gross WPM = (Total Keystrokes ÷ 5) ÷ Time in minutes
+    const grossWpm = minutesElapsed > 0 ? ((totalKeystrokes / 5) / minutesElapsed) : 0;
+
+    // Net WPM = Gross WPM – (Errors ÷ Time in minutes ÷ 5)
+    const netWpm = minutesElapsed > 0 ? (grossWpm - ((errorKeystrokes / minutesElapsed) / 5)) : 0;
+
+    // Accuracy = (Net WPM ÷ Gross WPM) × 100
+    const accuracy = grossWpm > 0 ? (netWpm / grossWpm) * 100 : 100;
+
+    return { wpm: Math.max(0, Math.round(netWpm)), accuracy: Math.max(0, Math.round(accuracy)), errors: errorKeystrokes };
+  }, [elapsedTime, userInput, charStates, currentIndex]);
 
 
   return (
