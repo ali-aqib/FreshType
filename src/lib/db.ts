@@ -1,8 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 
-// Decide provider: Postgres if DATABASE_URL/POSTGRES_URL is present; else local SQLite
-const PG_URL: string | undefined = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
+// Decide provider: Postgres if a known PG/Neon env var is present; else local SQLite
+const PG_URL: string | undefined =
+  process.env.DATABASE_URL ||
+  process.env.POSTGRES_URL ||
+  process.env.POSTGRES_PRISMA_URL ||
+  process.env.POSTGRES_URL_NON_POOLING ||
+  process.env.NEON_DATABASE_URL;
 const usePostgres = Boolean(PG_URL);
 
 // SQLite setup (used when Postgres URL is not provided)
@@ -33,7 +38,12 @@ let pool: any = null;
 async function ensurePg() {
   if (pool) return pool;
   const { Pool } = require('pg');
-  pool = new Pool({ connectionString: PG_URL });
+  // Neon typically requires SSL; if sslmode isn't in the URL, enforce SSL here
+  const needsSsl = PG_URL && !/sslmode=\w+/i.test(PG_URL);
+  pool = new Pool({
+    connectionString: PG_URL,
+    ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
+  });
   // Ensure schema exists (id serial, etc.)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS texts (

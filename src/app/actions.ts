@@ -15,7 +15,7 @@ function isInvalidApiKeyError(err: unknown): boolean {
   // Genkit raises FAILED_PRECONDITION when key missing/invalid and mentions API key env in message
   return (
     status === 'FAILED_PRECONDITION' ||
-    /API key/i.test(message) || /GEMINI_API_KEY|GOOGLE_API_KEY/i.test(message)
+  /API key/i.test(message) || /GEMINI_API_KEY|GOOGLE_API_KEY|GOOGLE_GENAI_API_KEY/i.test(message)
   );
 }
 
