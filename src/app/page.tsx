@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import type { ElementRef } from "react";
-import { RefreshCw, Zap, BookOpen, LoaderCircle, Eye, EyeOff } from "lucide-react";
+import { RefreshCw, Zap, LoaderCircle, Eye, EyeOff, Sun, Moon } from "lucide-react";
 import { getNewText, fetchTextsByWordLength, fetchTextById, fetchInitialText } from "./actions";
 import type { Difficulty } from "@/ai/flows/types";
 import { TypingTest, type TypingTestHandle } from "@/components/typing-test";
@@ -49,6 +49,7 @@ export default function Home() {
   const [pendingDifficulty, setPendingDifficulty] = useState<Difficulty | null>(null);
   const [apiKeyError, setApiKeyError] = useState<string>("");
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
+  const [isDark, setIsDark] = useState<boolean>(true);
 
   const fetchAndSetInitialData = useCallback(async (length: number) => {
     setIsLoading(true);
@@ -83,8 +84,25 @@ export default function Home() {
     // restore session-scoped API key
     const saved = typeof window !== 'undefined' ? sessionStorage.getItem('gemini_api_key') : null;
     if (saved) setApiKey(saved);
+    // theme init
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const dark = savedTheme ? savedTheme === 'dark' : prefersDark;
+      setIsDark(dark);
+      document.documentElement.classList.toggle('dark', dark);
+    }
     fetchAndSetInitialData(wordLength);
   }, [wordLength, fetchAndSetInitialData]);
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    if (typeof window !== 'undefined') {
+      document.documentElement.classList.toggle('dark', next);
+      localStorage.setItem('theme', next ? 'dark' : 'light');
+    }
+  };
 
   const handleRestart = () => {
     if (typingTestRef.current) {
@@ -93,13 +111,6 @@ export default function Home() {
   };
 
   const handleGenerateNewText = async (difficulty: Difficulty) => {
-    // If no key is set, prompt for key within dialog first
-    if (!apiKey.trim()) {
-      setPendingDifficulty(difficulty);
-      setApiKeyError("");
-      return;
-    }
-
     setShowDifficultyDialog(false);
     setIsGenerating(true);
     try {
@@ -119,7 +130,7 @@ export default function Home() {
     } catch (error) {
       const message = (error as any)?.message || '';
       if (message === 'INVALID_API_KEY') {
-        // keep dialog open and ask for key again
+        // Reopen dialog and ask for key again
         setShowDifficultyDialog(true);
         setPendingDifficulty(difficulty);
         setApiKeyError('Invalid API key. Please re-enter a valid Gemini API key.');
@@ -129,16 +140,11 @@ export default function Home() {
         return;
       }
       console.error("Failed to generate new text:", error);
-      // As a safety net: if fallback text was returned but the error indicates invalid key,
-      // ensure dialog is re-opened.
-      if ((error as any)?.message?.toString?.().includes('INVALID_API_KEY')) {
-        setShowDifficultyDialog(true);
-        setPendingDifficulty(difficulty);
-        setApiKeyError('Invalid API key. Please re-enter a valid Gemini API key.');
-        try { sessionStorage.removeItem('gemini_api_key'); } catch {}
-        setApiKey('');
-        return;
-      }
+      // Show error in dialog for other failures
+      setShowDifficultyDialog(true);
+      setPendingDifficulty(difficulty);
+      setApiKeyError('Failed to generate text. Please check your API key and try again.');
+      return;
     } finally {
       setIsGenerating(false);
     }
@@ -173,8 +179,10 @@ export default function Home() {
       return;
     }
     if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('gemini_api_key'); // Clear old key first
       sessionStorage.setItem('gemini_api_key', trimmed);
     }
+    setApiKeyError(""); // Clear any previous errors
     if (pendingDifficulty) {
       await handleGenerateNewText(pendingDifficulty);
     }
@@ -183,15 +191,22 @@ export default function Home() {
   // Keeping this placeholder if we want to restore ETA in the future
   const getEtaText = (_len: number) => "a few seconds";
 
+  // Normalize and unify how titles are displayed in the Select control
+  const formatTitle = (title: string): string => {
+    const withoutEllipses = (title || "").replace(/\.{3,}$/g, "").trim();
+    const MAX = 22; // fixed display length with no trailing dots
+    return withoutEllipses.length > MAX ? withoutEllipses.slice(0, MAX) : withoutEllipses;
+  };
+
   
   return (
     <main className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 font-code bg-background text-foreground">
       <div className="w-full max-w-4xl flex flex-col gap-8">
-        <header className="flex flex-col sm:flex-row sm:flex-wrap justify-between items-center gap-4">
-          <h1 className="text-4xl font-bold text-glow">FreshType</h1>
-          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2">
-            <Select onValueChange={handleWordLengthChange} defaultValue={String(wordLength)}>
-              <SelectTrigger className="w-[150px] shrink-0">
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <h1 className="text-4xl font-bold text-glow text-left leading-9">FreshType</h1>
+          <div className="flex flex-wrap items-center gap-1">
+            <Select onValueChange={handleWordLengthChange} defaultValue={String(wordLength)} disabled={isGenerating}>
+              <SelectTrigger className="w-[110px] sm:w-[120px] h-9 px-2 text-sm shrink-0">
                 <SelectValue placeholder="Word Length" />
               </SelectTrigger>
               <SelectContent>
@@ -206,11 +221,10 @@ export default function Home() {
             <Select 
               value={selectedTextId ? String(selectedTextId) : ""}
               onValueChange={(value) => handleSelectText(value)}
-              disabled={isFetchingChoices}>
-              <SelectTrigger className="w-[150px] shrink-0">
-                <BookOpen className="mr-2 h-4 w-4" />
+              disabled={isFetchingChoices || isGenerating}>
+              <SelectTrigger className="w-[150px] sm:w-[170px] h-9 px-2 text-sm shrink-0">
                 <SelectValue placeholder={isFetchingChoices ? "Loading..." : "Choose Text"}>
-                  {textTitle || (isFetchingChoices ? "Loading..." : "Choose Text")}
+                  {formatTitle(textTitle || (isFetchingChoices ? "Loading..." : "Choose Text"))}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -220,19 +234,27 @@ export default function Home() {
                   <SelectItem value="no-texts" disabled>No texts available</SelectItem>
                 ) : (
                   textChoices.map(choice => (
-                    <SelectItem key={choice.id} value={String(choice.id)}>{choice.title}</SelectItem>
+                    <SelectItem key={choice.id} value={String(choice.id)}>{formatTitle(choice.title)}</SelectItem>
                   ))
                 )}
               </SelectContent>
             </Select>
 
-            <Button onClick={() => setShowDifficultyDialog(true)} variant="outline" disabled={isGenerating} className="shrink-0">
-              <Zap className="mr-2 h-4 w-4" />
+            <Button onClick={() => {
+              setPendingDifficulty(null);
+              setApiKeyError("");
+              setShowDifficultyDialog(true);
+            }} variant="outline" size="sm" disabled={isGenerating} className="h-9 shrink-0 whitespace-nowrap px-2">
+              <Zap className="mr-0.5 h-4 w-4" />
               {isGenerating ? "Generating..." : "Generate New Text"}
             </Button>
-            <Button onClick={handleRestart} variant="outline" className="shrink-0">
-              <RefreshCw className="mr-2 h-4 w-4" />
+            <Button onClick={handleRestart} variant="outline" size="sm" disabled={isGenerating} className="h-9 shrink-0 whitespace-nowrap px-2">
+              <RefreshCw className="mr-0.5 h-4 w-4" />
               Restart
+            </Button>
+            <Button onClick={toggleTheme} variant="outline" size="sm" className="h-9 w-[90px] shrink-0 whitespace-nowrap px-2" aria-label="Toggle theme">
+              {isDark ? <Sun className="mr-0.5 h-4 w-4" /> : <Moon className="mr-0.5 h-4 w-4" />}
+              {isDark ? 'Light' : 'Dark'}
             </Button>
           </div>
         </header>
@@ -301,7 +323,14 @@ export default function Home() {
                 <Button
                   key={difficulty}
                   variant="outline"
-                  onClick={() => handleGenerateNewText(difficulty)}
+                  onClick={() => {
+                    if (!apiKey.trim()) {
+                      setPendingDifficulty(difficulty);
+                      setApiKeyError("");
+                    } else {
+                      handleGenerateNewText(difficulty);
+                    }
+                  }}
                 >
                   {difficulty}
                 </Button>

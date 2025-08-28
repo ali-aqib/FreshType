@@ -28,7 +28,8 @@ To ensure variety and a good challenge for the user, please follow these rules:
 3.  **Difficulty-based Characters**:
     - **Easy**: The text must include a mix of simple words and punctuation. Approximately 10% of the characters should be numbers (0-9) and basic punctuation (e.g., ",", ".", "?", "'").
     - **Moderate**: The text must include more complex words and sentence structures. Approximately 20% of the characters should be numbers (0-9) and a wider range of punctuation (e.g., ",", ".", "?", "'", "<", ">", ":", '"').
-    - **Hard**: The text must feature challenging vocabulary and complex sentences. Approximately 20% of the characters should be a mix of alphanumeric characters (e.g., 0-9) and symbols (e.g., "~", "\`", "!", "@", "#", "$", "%", "^", "*", "{", "(", "[", ")", "]", "}"). It should also include varied punctuation.
+    - **Hard**: The text must feature challenging vocabulary and complex sentences. Approximately 25% of the characters should be a mix of alphanumeric characters (e.g., 0-9) and symbols (e.g., "~", "\`", "!", "@", "#", "$", "%", "^", "*", "{", "(", "[", ")", "]", "}"). It should also include varied punctuation.
+    - Avoid characters that are not in the keyboard layout.
 4.  **Formatting**: The output must be a single, continuous block of text without any titles or headings.
 
 Output only the text content.`;
