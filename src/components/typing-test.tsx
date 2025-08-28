@@ -84,8 +84,8 @@ const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharS
                <span
                  className={cn(
                    charStates[index] === "untouched" && "text-muted-foreground",
-                   charStates[index] === "correct" && (showMistakes ? (isDark ? "text-emerald-400" : "text-correct-light") : "text-foreground"),
-                   (charStates[index] === "incorrect" && (showMistakes ? "text-red-500 bg-red-500/20 rounded" : "text-foreground")),
+                   charStates[index] === "correct" && (showMistakes ? (isDark ? "text-emerald-400 font-bold" : "text-correct-light font-bold") : "text-foreground font-bold"),
+                   (charStates[index] === "incorrect" && (showMistakes ? "text-red-500 bg-red-500/20 rounded font-bold" : "text-foreground font-bold")),
                  )}
                >
                  {char}
@@ -121,6 +121,11 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
 
   // Helper to resume from pause and refocus the textarea
   const resumeFromPause = () => {
+    // Prevent resuming timer if typing is complete
+    if (currentIndex >= text.length) {
+      setIsPaused(false);
+      return;
+    }
     const now = Date.now();
     if (pausedAtRef.current) {
       totalPausedMsRef.current += (now - pausedAtRef.current);
@@ -201,7 +206,7 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
   
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isTyping && !isPaused && startTime) {
+    if (isTyping && !isPaused && startTime && currentIndex < text.length) {
       interval = setInterval(() => {
         const now = Date.now();
         const pausedMs = totalPausedMsRef.current;
@@ -209,7 +214,7 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
       }, 100);
     }
     return () => clearInterval(interval);
-  }, [isTyping, isPaused, startTime]);
+  }, [isTyping, isPaused, startTime, currentIndex, text.length]);
 
   // Toggle pause/resume with Esc; do not use other keys
   useEffect(() => {
