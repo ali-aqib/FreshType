@@ -306,22 +306,22 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
 
   return (
     <div className={cn("flex flex-col gap-6", { "opacity-50": disabled })}>
-      <Card className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-2 text-center border-primary/60 bg-card/80">
-        <div className="p-1.5">
-          <p className="text-sm font-extrabold text-black dark:text-white">WPM</p>
-          <p className="text-4xl font-extrabold text-black dark:text-white">{wpm}</p>
+      <Card className="grid grid-cols-2 sm:grid-cols-5 gap-1 sm:gap-2 p-1.5 sm:p-2 text-center border-primary/60 bg-card/80">
+        <div className="p-1 sm:p-1.5">
+          <p className="text-xs sm:text-sm font-extrabold text-black dark:text-white">WPM</p>
+          <p className="text-2xl sm:text-4xl font-extrabold text-black dark:text-white">{wpm}</p>
         </div>
-        <div className="p-1.5">
-          <p className="text-sm font-extrabold text-black dark:text-white">CPM</p>
-          <p className="text-4xl font-extrabold text-black dark:text-white">{Math.round((charStates.slice(0, currentIndex).filter(s => s === 'correct').length) / Math.max(1, elapsedTime / 60))}</p>
+        <div className="p-1 sm:p-1.5">
+          <p className="text-xs sm:text-sm font-extrabold text-black dark:text-white">CPM</p>
+          <p className="text-2xl sm:text-4xl font-extrabold text-black dark:text-white">{Math.round((charStates.slice(0, currentIndex).filter(s => s === 'correct').length) / Math.max(1, elapsedTime / 60))}</p>
         </div>
-        <div className="p-1.5">
-          <p className="text-sm font-extrabold text-black dark:text-white">Accuracy</p>
-          <p className="text-4xl font-extrabold text-black dark:text-white">{accuracy}%</p>
+        <div className="p-1 sm:p-1.5">
+          <p className="text-xs sm:text-sm font-extrabold text-black dark:text-white">Accuracy</p>
+          <p className="text-2xl sm:text-4xl font-extrabold text-black dark:text-white">{accuracy}%</p>
         </div>
-        <div className="p-1.5">
-          <p className="text-sm font-extrabold text-black dark:text-white">Time</p>
-          <p className="text-4xl font-extrabold text-black dark:text-white">{
+        <div className="p-1 sm:p-1.5">
+          <p className="text-xs sm:text-sm font-extrabold text-black dark:text-white">Time</p>
+          <p className="text-2xl sm:text-4xl font-extrabold text-black dark:text-white">{
             (() => {
               const totalSeconds = Math.floor(elapsedTime);
               const minutes = Math.floor(totalSeconds / 60);
@@ -330,9 +330,9 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
             })()
           }</p>
         </div>
-        <div className="p-1.5">
-          <p className="text-sm font-extrabold text-black dark:text-white">Errors %</p>
-          <p className="text-4xl font-extrabold text-black dark:text-white">{errors}%</p>
+        <div className="p-1 sm:p-1.5">
+          <p className="text-xs sm:text-sm font-extrabold text-black dark:text-white">Errors %</p>
+          <p className="text-2xl sm:text-4xl font-extrabold text-black dark:text-white">{errors}%</p>
         </div>
         <div className="col-span-2 sm:col-span-5">
           <p className="text-xs text-muted-foreground text-center">Press Esc to pause/resume • Press F8 to toggle mistake highlighting ({showMistakes ? 'On' : 'Off'}).</p>
