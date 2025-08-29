@@ -290,9 +290,10 @@ export default function Home() {
             </div>
         )}
         
-        <footer className="text-center text-muted-foreground text-sm">
-            <p>Press any key to start the test. The timer begins on your first keystroke.</p>
-        </footer>
+    <footer className="text-center text-muted-foreground text-sm">
+      <p>Press any key to start the test. The timer begins on your first keystroke.</p>
+      <p className="text-black dark:text-white mt-1">Developed by AQIB ALI</p>
+    </footer>
       </div>
 
       {/* Dialog: Set API Key (session-scoped) */}
@@ -312,7 +313,7 @@ export default function Home() {
               <>
                 <DialogTitle>Enter API Key</DialogTitle>
                 <DialogDescription>
-                  Paste your Gemini API key. It will be stored only for this browser tab.
+                  We do not save your API key.
                 </DialogDescription>
               </>
             )}
