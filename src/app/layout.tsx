@@ -1,10 +1,11 @@
+/* eslint-disable @next/next/no-page-custom-font */
 import type {Metadata} from 'next';
 import { Toaster } from "@/components/ui/toaster"
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'FreshType',
-  description: 'A futuristic typing test to measure your speed and accuracy.',
+  description: 'Free online typing test to measure WPM, CPM, accuracy and errors. Practice SSC CHSL typing with 100/200/400/800 word passages',
 };
 
 export default function RootLayout({

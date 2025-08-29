@@ -128,7 +128,7 @@ export default function Home() {
         setTextChoices(choices);
       }
     } catch (error) {
-      const message = (error as any)?.message || '';
+      const message = (error instanceof Error ? error.message : String(error ?? ''));
       if (message === 'INVALID_API_KEY') {
         // Reopen dialog and ask for key again
         setShowDifficultyDialog(true);
@@ -188,8 +188,7 @@ export default function Home() {
     }
   };
 
-  // Keeping this placeholder if we want to restore ETA in the future
-  const getEtaText = (_len: number) => "a few seconds";
+  // ETA placeholder removed to satisfy lint; can be re-added if needed
 
   // Normalize and unify how titles are displayed in the Select control
   const formatTitle = (title: string): string => {

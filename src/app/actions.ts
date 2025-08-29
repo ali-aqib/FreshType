@@ -1,7 +1,7 @@
 
 "use server";
 
-import { generateTypingText, generateTypingTextWithKey } from "@/ai/flows/generate-typing-text";
+import { generateTypingTextWithKey } from "@/ai/flows/generate-typing-text";
 import { type GenerateTypingTextInput, type Difficulty } from "@/ai/flows/types";
 import { addText, getTextCountByWordLength, getTextsByWordLength, getText, TextRecord, getRandomTextByWordLength } from "@/lib/db";
 
@@ -9,9 +9,22 @@ export type { Difficulty };
 
 const fallbackText = "The quick brown fox jumps over the lazy dog. The five boxing wizards jump quickly. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump. When a user generates a new text using the AI, the app calculates the text's word length category. In the background, the app performs a silent check on the database. If the count is less than one hundred, the new text is saved to the database. If the count is one hundred or more, the app does not save the text to the database and displays no warning or message. Regardless of the storage status, the newly generated text is immediately loaded into the display window.";
 
+function extractError(err: unknown): { message: string; status?: string } {
+  if (err instanceof Error) {
+    const original: string | undefined = (err as unknown as { originalMessage?: string }).originalMessage;
+    const status: string | undefined = (err as unknown as { status?: string }).status;
+    return { message: err.message || original || "", status };
+  }
+  if (typeof err === 'object' && err !== null) {
+    const maybe = err as { message?: string; originalMessage?: string; status?: string };
+    return { message: maybe.message ?? maybe.originalMessage ?? "", status: maybe.status };
+  }
+  if (typeof err === 'string') return { message: err };
+  return { message: "" };
+}
+
 function isInvalidApiKeyError(err: unknown): boolean {
-  const message = (err as any)?.message || (err as any)?.originalMessage || "";
-  const status = (err as any)?.status;
+  const { message, status } = extractError(err);
   // Genkit raises FAILED_PRECONDITION when key missing/invalid and mentions API key env in message
   return (
     status === 'FAILED_PRECONDITION' ||
@@ -26,7 +39,7 @@ export async function getNewText(options: GenerateTypingTextInput & { apiKey?: s
     if (!allowed.includes(genOptions.wordLength)) {
       // Coerce to nearest allowed length
       const nearest = allowed.reduce((a, b) => Math.abs(b - genOptions.wordLength) < Math.abs(a - genOptions.wordLength) ? b : a, allowed[0]);
-      genOptions.wordLength = nearest as any;
+      genOptions.wordLength = nearest;
     }
     // Basic validation to avoid malformed keys (whitespace, non-ASCII, en-dash, etc.)
     const cleanedKey = (apiKey ?? "").trim();
@@ -49,7 +62,7 @@ export async function getNewText(options: GenerateTypingTextInput & { apiKey?: s
     
     return { id: newId, content: result.textContent, title };
   } catch (error) {
-    const message = (error as any)?.message || '';
+    const { message } = extractError(error);
     // Genkit or upstream may throw ByteString errors for non-ASCII characters in key
     if (message === 'INVALID_API_KEY' || isInvalidApiKeyError(error) || /ByteString/i.test(message)) {
       // Signal to client so UI can prompt re-entry without closing the dialog
@@ -81,6 +94,6 @@ export async function fetchInitialText(wordLength: number): Promise<Pick<TextRec
     if (textRecord) {
         return { id: textRecord.id, content: textRecord.content, title: textRecord.title };
     }
-  const newText = await getNewText({ wordLength: wl as any, difficulty: 'Easy' });
+  const newText = await getNewText({ wordLength: wl, difficulty: 'Easy' });
     return { id: newText.id, content: newText.content, title: newText.title };
 }

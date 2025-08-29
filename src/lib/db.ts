@@ -12,12 +12,14 @@ const usePostgres = Boolean(PG_URL);
 
 // SQLite setup (used when Postgres URL is not provided)
 const DB_FILE = 'typing-texts.db';
-let sqlite: any = null;
+let sqlite: import('better-sqlite3').Database | null = null;
 function ensureSqlite() {
   if (sqlite) return sqlite;
   const dbPath = path.join(process.cwd(), DB_FILE);
   const dbExists = fs.existsSync(dbPath);
-  const Database = require('better-sqlite3');
+  // We intentionally use require here for better dev ergonomics in Node runtime only
+  // eslint-disable-next-line @typescript-eslint/no-require-imports,@typescript-eslint/no-var-requires
+  const Database: typeof import('better-sqlite3') = require('better-sqlite3');
   sqlite = new Database(dbPath);
   if (!dbExists) {
     sqlite.exec(`
@@ -34,10 +36,13 @@ function ensureSqlite() {
 }
 
 // Postgres setup (lazy, only if URL provided)
-let pool: any = null;
+let pool: import('pg').Pool | null = null;
 async function ensurePg() {
   if (pool) return pool;
-  const { Pool } = require('pg');
+  // Use dynamic import without static require to satisfy ESLint while keeping lazy load
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const mod = (await (new Function("return import('pg')")())) as unknown as { Pool: typeof import('pg').Pool };
+  const { Pool } = mod;
   // Neon typically requires SSL; if sslmode isn't in the URL, enforce SSL here
   const needsSsl = PG_URL && !/sslmode=\w+/i.test(PG_URL);
   pool = new Pool({

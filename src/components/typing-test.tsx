@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle } from "react";
+import React, { useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle, useLayoutEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+// (Removed unused Button import)
 
 type CharState = "untouched" | "correct" | "incorrect";
 
@@ -25,6 +25,8 @@ function normalizeCharForCompare(char: string): string {
   const map: Record<string, string> = {
     // spaces
     "\u00A0": " ", // non-breaking space → space
+  "\n": " ", // treat newline as space so Enter isn't required
+  "\r": " ", // carriage return as space (Windows newlines)
     // single quotes / apostrophes
     "\u2019": "'", // right single quotation mark
     "\u2018": "'", // left single quotation mark
@@ -42,59 +44,52 @@ function normalizeCharForCompare(char: string): string {
   return (replaced ?? char);
 }
 
-const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharState[], currentIndex: number, showMistakes: boolean, isDark: boolean }>(({ text, charStates, currentIndex, showMistakes, isDark }, ref) => {
-  const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
+const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharState[], currentIndex: number, showMistakes: boolean, isDark: boolean }>(({ text, charStates, currentIndex: _currentIndex, showMistakes, isDark }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [caret, setCaret] = useState<{ left: number; top: number; height: number } | null>(null);
+  // Track per-glyph elements to compute scroll positions without a visible caret
+  const glyphRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
+  // Expose the scroll container to parent for scroll syncing
+  useImperativeHandle(ref, () => (containerRef.current ?? document.createElement('div')) as HTMLDivElement, []);
 
+  // Maintain refs array length
   useEffect(() => {
-    charRefs.current = charRefs.current.slice(0, text.length);
+    glyphRefs.current = glyphRefs.current.slice(0, text.length);
   }, [text]);
-  
-  useEffect(() => {
+
+  // Auto-scroll: when typing reaches near the bottom, keep the active line at the second last line
+  useLayoutEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || text.length === 0) return;
+    const idx = Math.max(0, Math.min(_currentIndex, text.length - 1));
+    const el = glyphRefs.current[idx];
+    if (!el) return;
+    const elRect = el.getBoundingClientRect();
+    const contRect = container.getBoundingClientRect();
 
-    let targetChar = charRefs.current[currentIndex];
-    let useRightEdge = false;
-    if (!targetChar) {
-      // If we're at the end of the text, anchor caret to the right edge of the last character
-      targetChar = charRefs.current[Math.max(0, currentIndex - 1)] ?? null;
-      useRightEdge = true;
+    const lineHeight = elRect.height || 20;
+    // Element top relative to container content
+    const elTop = (elRect.top - contRect.top) + container.scrollTop;
+    const elBottom = elTop + lineHeight;
+    const viewportTop = container.scrollTop;
+    const viewportBottom = viewportTop + container.clientHeight;
+
+    // If the active line would fall into the last line, scroll so it lands on the second-last line
+    const threshold = viewportBottom - lineHeight; // last line bottom threshold
+    if (elBottom > threshold) {
+      const desiredTop = elTop - (container.clientHeight - 2 * lineHeight);
+      const nextScrollTop = Math.max(0, Math.min(desiredTop, container.scrollHeight - container.clientHeight));
+      if (nextScrollTop > container.scrollTop + 1) {
+        container.scrollTop = nextScrollTop;
+      }
     }
-    if (!targetChar) return;
+  }, [_currentIndex, text]);
 
-    const containerRect = container.getBoundingClientRect();
-    const charRect = targetChar.getBoundingClientRect();
-
-    // Position an overlay caret without affecting layout
-    const left = (useRightEdge ? charRect.right : charRect.left) - containerRect.left + container.scrollLeft;
-    const top = charRect.top - containerRect.top + container.scrollTop;
-    const height = charRect.height;
-    setCaret({ left, top, height });
-
-    // Auto-scroll logic
-    const scrollBuffer = charRect.height * 2; // Keep 2 lines buffer
-    if (charRect.bottom > containerRect.bottom - scrollBuffer) {
-      container.scrollTop += charRect.bottom - (containerRect.bottom - scrollBuffer);
-    } else if (charRect.top < containerRect.top) {
-      container.scrollTop += charRect.top - containerRect.top;
-    }
-  }, [currentIndex, text]);
-
-  const percent = text.length > 0 ? Math.min(100, Math.round((currentIndex / text.length) * 100)) : 0;
+  // percent reserved for future use (removed to satisfy lint)
 
   return (
-    <Card ref={containerRef} className="relative h-44 overflow-y-auto overflow-x-hidden p-0 border-primary/60 bg-card/80">
-       {/* Absolute caret overlay that doesn't change layout */}
-       {caret && (
-         <span
-           className="pointer-events-none absolute bg-primary animate-pulse"
-           style={{ left: caret.left, top: caret.top, width: 2, height: caret.height }}
-         />
-       )}
-       <div className="p-4 text-base leading-relaxed tracking-normal sm:tracking-wide select-none">
+  <Card ref={containerRef} className="relative h-44 overflow-y-auto overflow-x-hidden p-0 border-primary/60 bg-card/80 themed-scrollbar kerning-off">
+  <div className="p-4 text-base leading-relaxed tracking-normal sm:tracking-wide select-none">
          {text.split('\n').map((line, lineIdx, linesArr) => {
            // Calculate the start index of this line in the full text
            const startIdx = linesArr.slice(0, lineIdx).reduce((acc, l) => acc + l.length + 1, 0); // +1 for '\n'
@@ -102,16 +97,23 @@ const TextDisplay = forwardRef<HTMLDivElement, { text: string; charStates: CharS
              <div key={lineIdx} style={{ display: 'block', width: '100%' }}>
                {line.split('').map((char, charIdx) => {
                  const index = startIdx + charIdx;
+                 const isSpace = char === ' ';
+                 const showSpaceBox = isSpace && showMistakes && charStates[index] === 'incorrect';
                  return (
-                   <span key={index} ref={el => { charRefs.current[index] = el; }}>
+                   <span key={index}>
                      <span
+                       ref={el => { glyphRefs.current[index] = el; }}
                        className={cn(
                          charStates[index] === "untouched" && "text-muted-foreground",
                          charStates[index] === "correct" && (showMistakes ? (isDark ? "text-emerald-400 font-bold" : "text-correct-light font-bold") : "text-foreground font-bold"),
                          (charStates[index] === "incorrect" && (showMistakes ? "text-red-500 bg-red-500/20 rounded font-bold" : "text-foreground font-bold")),
                        )}
                      >
-                       {char}
+                       {showSpaceBox ? (
+                         <span style={{ display: 'inline-block', width: '1ch', height: '1em' }} aria-hidden="true">{'\u00A0'}</span>
+                       ) : (
+                         char
+                       )}
                      </span>
                    </span>
                  );
@@ -135,6 +137,14 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const textDisplayContainerRef = useRef<HTMLDivElement>(null);
+  const [displayHasOverflow, setDisplayHasOverflow] = useState(false);
+  const desiredSelectionRef = useRef<number | null>(null);
+  const syncScroll = React.useCallback(() => {
+    const display = textDisplayContainerRef.current;
+    const input = inputRef.current;
+    if (!display || !input) return;
+    input.scrollTop = display.scrollTop;
+  }, []);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [hasStarted, setHasStarted] = useState<boolean>(false);
   const pausedAtRef = useRef<number | null>(null);
@@ -144,7 +154,7 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
   const currentIndex = userInput.length;
 
   // Helper to resume from pause and refocus the textarea
-  const resumeFromPause = () => {
+  const resumeFromPause = useCallback(() => {
     // Prevent resuming timer if typing is complete
     if (currentIndex >= text.length) {
       setIsPaused(false);
@@ -158,7 +168,7 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
     setIsPaused(false);
     if (!isTyping && hasStarted) setIsTyping(true);
     setTimeout(() => inputRef.current?.focus(), 0);
-  };
+  }, [currentIndex, text.length, isTyping, hasStarted]);
 
   const restartTest = () => {
     setIsTyping(false);
@@ -167,10 +177,7 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
     setUserInput("");
     setCharStates(Array(text.length).fill("untouched"));
     if (textDisplayContainerRef.current) {
-        const scroller = textDisplayContainerRef.current.querySelector('.overflow-y-auto');
-        if (scroller) {
-          scroller.scrollTop = 0;
-        }
+      try { textDisplayContainerRef.current.scrollTop = 0; } catch {}
     }
     if (inputRef.current) {
         inputRef.current.value = "";
@@ -187,6 +194,35 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
         inputRef.current?.focus();
     }
   }, [disabled, text]);
+
+  // Keep the textarea scrollbar state in sync with display overflow
+  useEffect(() => {
+    const display = textDisplayContainerRef.current;
+    const input = inputRef.current;
+    if (!display || !input) return;
+
+    const checkOverflow = () => {
+      requestAnimationFrame(() => {
+        const hasOverflow = display.scrollHeight > display.clientHeight + 1;
+        setDisplayHasOverflow(hasOverflow);
+      });
+    };
+
+    const onScroll = () => syncScroll();
+    display.addEventListener('scroll', onScroll, { passive: true });
+
+    let ro: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(checkOverflow);
+      ro.observe(display);
+    }
+    checkOverflow();
+
+    return () => {
+      display.removeEventListener('scroll', onScroll);
+      if (ro) ro.disconnect();
+    };
+  }, [text, syncScroll]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const typedValue = e.target.value;
@@ -205,17 +241,43 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
     }
   
     const newCharStates = [...charStates];
-    const newLength = typedValue.length;
+    // Auto-insert a space/newline parity at expected newline so wrapping matches display
+    let finalValue = typedValue;
+    if (typedValue.length > userInput.length) {
+      const idx = userInput.length;
+      const expected = text[idx];
+      const raw = typedValue[idx];
+      if (expected === '\n' || expected === '\r') {
+        if (raw === ' ') {
+          finalValue = typedValue.substring(0, idx) + '\n' + typedValue.substring(idx + 1);
+          desiredSelectionRef.current = idx + 1;
+        } else if (raw !== '\n' && raw !== '\r') {
+          finalValue = userInput + ' ' + typedValue.slice(idx);
+          desiredSelectionRef.current = idx + 1;
+        }
+      }
+    }
+
+    const newLength = finalValue.length;
     const oldLength = userInput.length;
   
     if (newLength > oldLength) { // Character added
-      const addedChar = typedValue.slice(oldLength);
+      const addedChar = finalValue.slice(oldLength);
       for (let i = 0; i < addedChar.length; i++) {
         const charIdx = oldLength + i;
         if(charIdx < text.length) {
-            const typedChar = normalizeCharForCompare(typedValue[charIdx]);
+            const typedChar = normalizeCharForCompare(finalValue[charIdx]);
             const targetChar = normalizeCharForCompare(text[charIdx]);
-            newCharStates[charIdx] = typedChar === targetChar ? "correct" : "incorrect";
+            if (text[charIdx] === '\n' || text[charIdx] === '\r') {
+              const raw = finalValue[charIdx];
+              if (raw === '\n' || raw === '\r' || raw === ' ') {
+                newCharStates[charIdx] = 'correct';
+              } else {
+                newCharStates[charIdx] = 'incorrect';
+              }
+            } else {
+              newCharStates[charIdx] = typedChar === targetChar ? 'correct' : 'incorrect';
+            }
         }
       }
     } else { // Character removed
@@ -225,8 +287,18 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
     }
   
     setCharStates(newCharStates);
-    setUserInput(typedValue);
+    setUserInput(finalValue);
   };
+
+  // Apply any requested caret move after value updates to ensure the textarea reflects it.
+  useLayoutEffect(() => {
+    const pos = desiredSelectionRef.current;
+    const el = inputRef.current;
+    if (el && pos != null) {
+      try { el.setSelectionRange(pos, pos); } catch {}
+      desiredSelectionRef.current = null;
+    }
+  }, [userInput]);
   
   useEffect(() => {
     if (!isTyping || isPaused || !startTime) return;
@@ -267,7 +339,7 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isPaused, isTyping, hasStarted]);
+  }, [isPaused, isTyping, hasStarted, resumeFromPause]);
 
   // Ensure focus whenever pause ends (covers other state paths)
   useEffect(() => {
@@ -366,18 +438,25 @@ export const TypingTest = forwardRef<TypingTestHandle, TypingTestProps>(({ text,
         )}
       </div>
       
-      <Textarea
-          ref={inputRef}
-          value={userInput}
-          onChange={handleInputChange}
-          className="text-base leading-relaxed tracking-wider h-36"
-          placeholder="Start typing here..."
-          disabled={disabled || isPaused || currentIndex >= text.length}
-          rows={4}
-      />
+      <div className="rounded-lg border border-input overflow-hidden">
+        <Textarea
+            ref={inputRef}
+            value={userInput}
+            onChange={handleInputChange}
+            className={cn(
+              "text-base leading-relaxed tracking-normal sm:tracking-wide h-44 overflow-y-auto themed-scrollbar px-4 kerning-off font-bold rounded-none border-0",
+              displayHasOverflow ? "[overflow-y:scroll]" : ""
+            )}
+            spellCheck={false}
+            autoCorrect="off"
+            autoCapitalize="off"
+            placeholder="Start typing here..."
+            disabled={disabled || isPaused || currentIndex >= text.length}
+            rows={4}
+        />
+      </div>
     </div>
   );
 });
 
 TypingTest.displayName = "TypingTest";
-
