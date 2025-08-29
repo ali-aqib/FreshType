@@ -24,6 +24,11 @@
 .DS_Store
 *.pem
 
+# editor (VS Code)
+.vscode/tasks.json
+# Or ignore the entire folder if you don't want to track editor settings at all:
+# .vscode/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
