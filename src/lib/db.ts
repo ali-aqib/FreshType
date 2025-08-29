@@ -1,4 +1,5 @@
 import 'server-only';
+import { neon } from '@neondatabase/serverless';
 
 // Neon-only database layer: always uses DATABASE_URL (Neon Postgres)
 const DATABASE_URL: string | undefined = process.env.DATABASE_URL;
@@ -10,11 +11,6 @@ async function ensureNeon() {
   if (!DATABASE_URL) {
     throw new Error('DATABASE_URL is required (Neon Postgres).');
   }
-  // Lazy import to keep bundle light
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const { neon } = (await (new Function("return import('@neondatabase/serverless')")())) as unknown as {
-    neon: (url: string) => (strings: TemplateStringsArray, ...params: any[]) => Promise<any[]>
-  };
   neonSql = neon(DATABASE_URL);
   // Ensure schema exists (id serial + check constraint)
   await neonSql`CREATE TABLE IF NOT EXISTS texts (
